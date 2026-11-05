@@ -1,0 +1,3 @@
+CONTAINER ID   NAME                CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O     PIDS
+62ab09ed048b   codyssey-web-8080   0.00%     7.48MiB / 7.599GiB    0.10%     4.24kB / 3.44kB   0B / 12.3kB   9
+4e3e25091d18   codyssey-web-8081   0.00%     8.156MiB / 7.599GiB   0.10%     3.95kB / 3.75kB   0B / 12.3kB   9

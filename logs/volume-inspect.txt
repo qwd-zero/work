@@ -1,0 +1,11 @@
+[
+    {
+        "CreatedAt": "2026-11-05T14:13:32Z",
+        "Driver": "local",
+        "Labels": null,
+        "Mountpoint": "/var/lib/docker/volumes/codyssey-data/_data",
+        "Name": "codyssey-data",
+        "Options": null,
+        "Scope": "local"
+    }
+]

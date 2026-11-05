@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codyssey Work</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 100px;
+            background-color: #f4f6f8;
+        }
+        h1 { color: #2563eb; }
+        p { color: #444; }
+    </style>
+</head>
+<body>
+    <h1>Codyssey Docker Web Server</h1>
+    <p>My development work is running!</p>
+    <p>Powered by Nginx and Docker</p>
+</body>
+</html>

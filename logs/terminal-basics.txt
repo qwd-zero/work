@@ -1,0 +1,12 @@
+/home/qwd-zero/codyssey/work
+qwd-zero
+Linux DESKTOP-7SLPUF1 6.18.54.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct  6 19:13:07 UTC 2026 x86_64 GNU/Linux
+total 24
+drwxr-xr-x 6 qwd-zero qwd-zero 4096 Nov  5 22:55 .
+drwxr-xr-x 6 qwd-zero qwd-zero 4096 Nov  5 22:55 ..
+-rw-r--r-- 1 qwd-zero qwd-zero    0 Nov  5 22:55 .gitignore
+-rw-r--r-- 1 qwd-zero qwd-zero    0 Nov  5 22:55 README.md
+drwxr-xr-x 2 qwd-zero qwd-zero 4096 Nov  5 22:55 evidence
+drwxr-xr-x 2 qwd-zero qwd-zero 4096 Nov  5 22:55 live
+drwxr-xr-x 2 qwd-zero qwd-zero 4096 Nov  5 22:57 logs
+drwxr-xr-x 2 qwd-zero qwd-zero 4096 Nov  5 22:55 site

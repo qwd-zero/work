@@ -1,0 +1,3 @@
+-rw-r--r-- 1 qwd-zero qwd-zero 16 Nov  5 22:59 permission-test.txt
+-rw-r----- 1 qwd-zero qwd-zero 16 Nov  5 22:59 permission-test.txt
+640 permission-test.txt
