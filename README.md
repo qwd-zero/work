@@ -41,6 +41,11 @@ work/
 │   └── index.html          # 이미지에 복사할 정적 웹페이지
 ├── live/
 │   └── index.html          # 바인드 마운트로 제공할 웹페이지
+├── evidence/               # 브라우저 접속·바인드 마운트 스크린샷
+│   ├── port-8080.png
+│   ├── port-8081.png
+│   ├── bind-before.png
+│   └── bind-after.png
 └── logs/                   # 명령 결과·검증 증거
     ├── docker-*.txt
     ├── port-8080.txt
@@ -49,11 +54,12 @@ work/
     ├── volume-*.txt
     ├── permission.txt
     ├── terminal-basics.txt
+    ├── file-operations.txt
     ├── troubleshooting-*.txt
     └── git-remote.txt
 ```
 
-> `evidence/` 이미지 파일은 현재 GitHub 저장소에 존재하지 않습니다. 따라서 실제 없는 스크린샷을 성공 증거처럼 표시하지 않고, 존재하는 `logs/` 파일을 근거로 사용합니다.
+> `backups/`는 실제 볼륨 백업 압축 파일을 보관하는 **로컬 디렉터리**이며 `.gitignore`에 의해 GitHub에 업로드되지 않습니다. `evidence/`의 스크린샷 4개는 GitHub에 등록되어 있습니다. `logs/`에는 백업·파일 관리 실습을 포함한 명령 결과를 보관합니다.
 
 ## 빠른 시작
 
@@ -119,7 +125,26 @@ ls -l permission-test.txt
 stat -c '%a %n' permission-test.txt
 ```
 
-검증: [기본 터미널 로그](logs/terminal-basics.txt) · [권한 변경 로그](logs/permission.txt)
+### 파일·디렉터리 생성·이동·삭제 증거 (평가 #1)
+
+실제 터미널에서 테스트 디렉터리를 만들고, 파일을 생성한 후 이름을 변경하고, 파일과 빈 디렉터리를 삭제했습니다. `ls`로 중간 상태를 확인하고 `test ! -e`로 삭제를 검증했습니다.
+
+```bash
+# 다른 기존 파일과 충돌하지 않도록 고유한 테스트 디렉터리 사용
+DEMO_DIR="file-ops-demo-$(date +%s)-$"
+mkdir "$DEMO_DIR"
+touch "$DEMO_DIR/before.txt"
+ls -l "$DEMO_DIR"
+mv "$DEMO_DIR/before.txt" "$DEMO_DIR/after.txt"
+ls -l "$DEMO_DIR"
+rm "$DEMO_DIR/after.txt"
+rmdir "$DEMO_DIR"
+test ! -e "$DEMO_DIR" && echo "삭제 검증 성공"
+```
+
+실행 증거: [파일 관리 전체 명령·출력](logs/file-operations.txt) — `mkdir`, `touch`, `mv`, `rm`, `rmdir`와 삭제 확인이 포함되어 있습니다.
+
+검증: [기본 터미널 로그](logs/terminal-basics.txt) · [권한 변경 전후 기록](logs/permission.txt) (`644 → 640`, `ls -l` 및 `stat` 확인)
 
 ## 2. Docker 기본 검증
 
@@ -183,7 +208,13 @@ curl http://localhost:8080
 curl http://localhost:8081
 ```
 
-`-p 127.0.0.1:8080:80`은 호스트의 루프백 8080을 컨테이너의 80에 연결해 로컬 접속으로 제한합니다. 바인딩 주소를 생략한 `-p 8080:80`은 Docker 환경에 따라 외부 인터페이스로도 공개될 수 있습니다.
+### 네트워크 네임스페이스와 포트 매핑 (평가 #13)
+
+일반적인 Docker 브리지 네트워크의 컨테이너는 Linux **네트워크 네임스페이스(network namespace)**를 이용해 호스트와 분리된 네트워크 인터페이스, IP 주소, 라우팅 테이블, 포트 공간을 갖습니다. 따라서 컨테이너에서 Nginx가 `80`번 포트를 사용하더라도 호스트의 `80`번 포트가 자동으로 공개되지는 않습니다.
+
+`-p 127.0.0.1:8080:80`은 **호스트 루프백 주소의 8080 포트 → 컨테이너의 80 포트**로 요청을 전달하도록 포트를 게시합니다. 같은 이미지로 실행한 다른 컨테이너도 독립적인 내부 `80`번 포트를 사용하면서 호스트의 `8081` 등 다른 포트에 연결할 수 있습니다. 바인딩 주소를 생략한 `-p 8080:80`은 Docker 환경에 따라 외부 인터페이스에도 공개될 수 있습니다.
+
+> 예외: `--network host` 모드는 일반적인 브리지 네트워크와 달리 호스트 네트워크를 공유하므로 위와 같은 네트워크 분리·포트 게시 설명을 그대로 적용할 수 없습니다.
 
 | 주소 | 호스트 포트 | 컨테이너 포트 | 저장된 검증 |
 | --- | --- | --- | --- |
@@ -260,6 +291,45 @@ docker run --rm \
 예상되는 마지막 출력은 `Codyssey Persistent Data`입니다. 실행 과정에서 동일한 이름의 기존 컨테이너가 남아 있으면 먼저 상태를 확인하세요. 볼륨 자체를 제거하려면 `docker volume rm codyssey-data`를 사용하며, **이 명령은 보존 데이터까지 삭제**하므로 주의합니다.
 
 저장된 실습 결과는 삭제 전과 재실행 후 데이터가 일치합니다: [볼륨 생성](logs/volume-created.txt) · [삭제 전](logs/volume-before.txt) · [컨테이너 삭제](logs/volume-container-deleted.txt) · [삭제 후](logs/volume-after.txt) · [볼륨 정보](logs/volume-inspect.txt)
+
+### 이름 있는 볼륨 백업과 복구 대안 (평가 #17)
+
+컨테이너 삭제 후 데이터가 남는 **영속성**과, 별도 파일로 데이터를 보관하는 **백업**은 다릅니다. 이번에는 실제 볼륨 `codyssey-data`를 Alpine 컨테이너에 읽기 전용으로 마운트하고, 로컬 `backups/volume-backup.tar.gz`에 `tar.gz` 압축 파일을 만든 기록이 있습니다.
+
+프로젝트 루트에서 실행한 백업 절차:
+
+```bash
+mkdir -p backups logs
+docker volume inspect codyssey-data
+
+docker run --rm \
+  --mount type=volume,source=codyssey-data,target=/data,readonly \
+  --mount type=bind,source="$(pwd)/backups",target=/backup \
+  alpine \
+  sh -c 'tar -czvf /backup/volume-backup.tar.gz -C /data .'
+
+ls -lh backups/volume-backup.tar.gz
+tar -tzf backups/volume-backup.tar.gz
+```
+
+[실제 백업 실행 로그](logs/volume-backup.txt)에는 압축 파일 생성, 파일 목록 조회 및 `hello.txt` 항목이 있습니다. 이 항목은 앞선 영속성 예제의 `message.txt`와 **별개의 백업 시점 자료**이며, 저장된 백업 로그만으로 복구 성공을 확인한 것은 아닙니다. 백업 압축 파일 자체는 `.gitignore`의 `backups/` 규칙에 따라 GitHub에 저장하지 않습니다.
+
+**복원 예시(실행 증거가 아닌 참고 절차):** 기존 볼륨을 덮어쓰지 않도록 새 볼륨을 만들어 압축 파일을 풀고, 내용을 확인할 수 있습니다.
+
+```bash
+docker volume create codyssey-restore-test
+docker run --rm \
+  --mount type=volume,source=codyssey-restore-test,target=/restore \
+  --mount type=bind,source="$(pwd)/backups",target=/backup,readonly \
+  alpine \
+  sh -c 'tar -xzvf /backup/volume-backup.tar.gz -C /restore'
+
+docker run --rm \
+  --mount type=volume,source=codyssey-restore-test,target=/data,readonly \
+  alpine ls -la /data
+```
+
+복원 검증을 마친 뒤 테스트 볼륨이 더 이상 필요하지 않을 때만 `docker volume rm codyssey-restore-test`로 제거합니다. 데이터가 변경되는 서비스라면 정합성 있는 백업을 위해 쓰기를 일시 중단하거나 애플리케이션별 백업 기능을 사용해야 합니다.
 
 ### 바인드 마운트와 볼륨 비교
 
@@ -349,17 +419,20 @@ git status
 ## 9. 제출·검증 체크리스트
 
 - [x] Linux 기본 명령 및 권한 변경 로그 보관
+- [x] 파일·디렉터리 생성, 이동, 삭제 실행 로그 보관 (`logs/file-operations.txt`)
 - [x] Docker 버전, `hello-world`, 이미지·컨테이너 점검 기록
 - [x] Dockerfile 및 Nginx 정적 웹페이지 추가
 - [x] 호스트 8080, 8081 포트의 웹 응답 기록
+- [x] 네트워크 네임스페이스와 포트 매핑 원리 설명
 - [x] 바인드 마운트 수정 전·후 응답 기록
 - [x] 볼륨의 컨테이너 삭제 전·후 데이터 동일성 기록
+- [x] 이름 있는 볼륨 백업 실행 로그 및 복원 참고 절차 작성
 - [x] 포트 충돌 및 마운트 점검 관련 로그 기록
 - [x] GitHub 원격 저장소 연결
-- [ ] 실제 브라우저 스크린샷을 저장소에 추가하고 링크하기(선택 사항)
+- [x] 브라우저 및 바인드 마운트 스크린샷 4개를 `evidence/`에 보관하고 링크
 - [ ] Windows, Ubuntu, Git 상세 버전 증빙 보완(선택 사항)
 
-**검증 범위:** 체크 표시된 항목은 저장소에 파일 또는 명령 출력 기록이 존재한다는 뜻입니다. 현재 로컬 시스템에서 해당 컨테이너가 계속 실행 중이라는 뜻은 아닙니다.
+**검증 범위:** 체크 표시된 항목은 저장소에 파일·명령 출력 기록이 있거나 이 README에 해당 개념 설명이 있다는 뜻입니다. 현재 로컬 시스템에서 컨테이너가 계속 실행 중이거나, 볼륨 **복원 실습**까지 완료했다는 뜻은 아닙니다.
 
 ## 10. 전체 컨테이너 종료 및 정리
 
