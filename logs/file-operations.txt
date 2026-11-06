@@ -1,0 +1,23 @@
+++ date +%s
++ DEMO_DIR=file-ops-demo-1793953460-26574
++ mkdir file-ops-demo-1793953460-26574
++ ls --color=auto -ld file-ops-demo-1793953460-26574
+drwxr-xr-x 2 qwd-zero qwd-zero 4096 Nov  6 17:24 file-ops-demo-1793953460-26574
++ touch file-ops-demo-1793953460-26574/before.txt
++ ls --color=auto -l file-ops-demo-1793953460-26574
+total 0
+-rw-r--r-- 1 qwd-zero qwd-zero 0 Nov  6 17:24 before.txt
++ mv file-ops-demo-1793953460-26574/before.txt file-ops-demo-1793953460-26574/after.txt
++ ls --color=auto -l file-ops-demo-1793953460-26574
+total 0
+-rw-r--r-- 1 qwd-zero qwd-zero 0 Nov  6 17:24 after.txt
++ rm file-ops-demo-1793953460-26574/after.txt
++ ls --color=auto -la file-ops-demo-1793953460-26574
+total 8
+drwxr-xr-x 2 qwd-zero qwd-zero 4096 Nov  6 17:24 .
+drwxr-xr-x 8 qwd-zero qwd-zero 4096 Nov  6 17:24 ..
++ rmdir file-ops-demo-1793953460-26574
++ test '!' -e file-ops-demo-1793953460-26574
++ echo '삭제 검증 성공'
+삭제 검증 성공
++ set +x

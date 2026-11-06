@@ -1,0 +1,14 @@
+Unable to find image 'alpine:latest' locally
+latest: Pulling from library/alpine
+881fc932939e: Pulling fs layer
+881fc932939e: Download complete
+86ff264fe568: Download complete
+881fc932939e: Pull complete
+c35a7d82b8fa: Download complete
+Digest: sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a
+Status: Downloaded newer image for alpine:latest
+./
+./hello.txt
+-rw-r--r-- 1 root root 159 Nov  6 17:25 backups/volume-backup.tar.gz
+./
+./hello.txt
