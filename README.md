@@ -194,6 +194,16 @@ curl http://localhost:8081
 
 추가 자료: [8080 실행](logs/run-8080.txt) · [8081 실행](logs/run-8081.txt) · [docker ps](logs/docker-ps.txt)
 
+### 브라우저 접속 증빙
+
+**8080 포트**
+
+![8080 포트 웹페이지](evidence/port-8080.png)
+
+**8081 포트**
+
+![8081 포트 웹페이지](evidence/port-8081.png)
+
 ## 5. 바인드 마운트: 수정 내용 즉시 반영
 
 **바인드 마운트**는 호스트의 특정 파일·디렉터리를 컨테이너 내부 경로에 연결합니다. 이 프로젝트에서는 `live/index.html`을 Nginx 문서 루트에서 제공하여 이미지 재빌드 없이 변경 내용을 확인합니다.
@@ -218,6 +228,16 @@ curl http://localhost:8082
 docker stop codyssey-bind
 docker rm codyssey-bind
 ```
+
+### 바인드 마운트 변경 증빙
+
+**변경 전**
+
+![바인드 마운트 변경 전](evidence/bind-before.png)
+
+**변경 후**
+
+![바인드 마운트 변경 후](evidence/bind-after.png)
 
 ## 6. Docker 이름 있는 볼륨: 컨테이너 삭제 후 데이터 유지
 
