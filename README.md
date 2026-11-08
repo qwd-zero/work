@@ -29,6 +29,8 @@ Windows 호스트에서 WSL 2 기반 Linux 터미널을 사용하고, Docker 이
 
 Windows 및 Ubuntu 배포판의 정확한 버전, Git 버전은 저장된 로그에서 확인되지 않아 기재하지 않았습니다. 확인할 때는 Windows PowerShell에서 `wsl -l -v`, WSL 터미널에서 `cat /etc/os-release`, `git --version`을 실행합니다.
 
+실습 당시 `codyssey-web:1.0` 이미지로 실행한 컨테이너 두 개가 `Up` 상태였고, 호스트 8080과 8081이 각각 내부 80번 포트에 연결됐습니다. [이미지 목록](logs/docker-images.txt) · [컨테이너 상태](logs/docker-ps.txt)
+
 ## 저장소 구조
 
 ```text
@@ -41,6 +43,8 @@ work/
 │   └── index.html          # 이미지에 복사할 정적 웹페이지
 ├── live/
 │   └── index.html          # 바인드 마운트로 제공할 웹페이지
+├── scripts/
+│   └── verify-evidence.sh   # 볼륨 영속성·포트 충돌을 다시 실행해 기록
 ├── evidence/               # 브라우저 접속·바인드 마운트 스크린샷
 │   ├── port-8080.png
 │   ├── port-8081.png
@@ -61,9 +65,11 @@ work/
 
 > `backups/`는 실제 볼륨 백업 압축 파일을 보관하는 **로컬 디렉터리**이며 `.gitignore`에 의해 GitHub에 업로드되지 않습니다. `evidence/`의 스크린샷 4개는 GitHub에 등록되어 있습니다. `logs/`에는 백업·파일 관리 실습을 포함한 명령 결과를 보관합니다.
 
+웹 서버의 소스는 [site/index.html](site/index.html), 실습 명령과 출력의 예시는 [파일 관리 로그](logs/file-operations.txt)에서 볼 수 있습니다.
+
 ## 빠른 시작
 
-**사전 준비:** Docker 엔진 또는 Docker Desktop(WSL 연동)이 정상 실행 중이어야 합니다. Linux/WSL 터미널에서 다음을 실행합니다.
+Windows에서는 Docker Desktop을 켜고 Ubuntu의 WSL 연동을 확인합니다. 아래 복제·빌드·실행 명령은 WSL 터미널에서 입력하고, 페이지는 Windows 브라우저에서 엽니다. Linux에서는 Docker 엔진을 실행한 뒤 같은 명령을 사용합니다.
 
 ```bash
 git clone https://github.com/qwd-zero/work.git
@@ -103,7 +109,7 @@ mkdir -p practice
 ls -ld practice
 ```
 
-**절대 경로**는 `/`에서 시작합니다. 예: `/home/qwd-zero/codyssey/work/site/index.html`. **상대 경로**는 현재 위치를 기준으로 합니다. 프로젝트 루트에서 `site/index.html`, `./live/index.html` 또는 `../` 등을 사용할 수 있습니다. `pwd`를 통해 기준 위치를 확인하세요.
+**절대 경로**는 `/`에서 시작합니다. 예: `/home/qwd-zero/codyssey/work/site/index.html`. **상대 경로**는 현재 위치를 기준으로 합니다. 프로젝트 루트에서 `site/index.html`, `./live/index.html` 또는 `../` 등을 사용할 수 있습니다. `pwd`로 기준 위치를 확인하세요. `Permission denied`가 나오면 `ls -ld . site`로 경로를 지나는 디렉터리의 `x` 권한을, `ls -l site/index.html`로 파일의 읽기 권한을 확인합니다.
 
 Linux 권한은 사용자(owner), 그룹(group), 기타 사용자(others) 순으로 표시됩니다.
 
@@ -117,7 +123,7 @@ Linux 권한은 사용자(owner), 그룹(group), 기타 사용자(others) 순으
 - `644 = rw-r--r--`: 소유자 읽기·쓰기, 나머지 읽기
 - `640 = rw-r-----`: 소유자 읽기·쓰기, 그룹 읽기, 기타 권한 없음
 
-이 저장소에서는 아래 명령으로 `permission-test.txt`가 `644`에서 `640`으로 바뀐 기록이 있습니다.
+`permission-test.txt`를 `644`에서 `640`으로 변경해 소유자는 계속 수정하고 그룹은 읽을 수 있게 하면서 다른 사용자의 읽기 권한을 제거했습니다.
 
 ```bash
 chmod 640 permission-test.txt
@@ -125,21 +131,26 @@ ls -l permission-test.txt
 stat -c '%a %n' permission-test.txt
 ```
 
+`chmod`는 권한을, `chown`은 소유자와 그룹을 변경합니다. 실습 파일이 실수로 `root` 소유가 된 경우에만 `sudo chown "$(id -un):$(id -gn)" permission-test.txt`로 자신의 소유로 돌리고 `ls -l`로 확인합니다.
+
 ### 파일·디렉터리 생성·이동·삭제 증거 (평가 #1)
 
 실제 터미널에서 테스트 디렉터리를 만들고, 파일을 생성한 후 이름을 변경하고, 파일과 빈 디렉터리를 삭제했습니다. `ls`로 중간 상태를 확인하고 `test ! -e`로 삭제를 검증했습니다.
 
 ```bash
-# 다른 기존 파일과 충돌하지 않도록 고유한 테스트 디렉터리 사용
-DEMO_DIR="file-ops-demo-$(date +%s)-$"
-mkdir "$DEMO_DIR"
-touch "$DEMO_DIR/before.txt"
-ls -l "$DEMO_DIR"
-mv "$DEMO_DIR/before.txt" "$DEMO_DIR/after.txt"
-ls -l "$DEMO_DIR"
-rm "$DEMO_DIR/after.txt"
-rmdir "$DEMO_DIR"
-test ! -e "$DEMO_DIR" && echo "삭제 검증 성공"
+# $$는 현재 Bash의 프로세스 ID다. 디렉터리 생성이 실패하면 이 예제의 실행을 멈춘다.
+(
+  set -e
+  DEMO_DIR="file-ops-demo-$(date +%s)-$$"
+  mkdir "$DEMO_DIR"
+  touch "$DEMO_DIR/before.txt"
+  ls -l "$DEMO_DIR"
+  mv "$DEMO_DIR/before.txt" "$DEMO_DIR/after.txt"
+  ls -l "$DEMO_DIR"
+  rm "$DEMO_DIR/after.txt"
+  rmdir "$DEMO_DIR"
+  test ! -e "$DEMO_DIR" && echo "삭제 검증 성공"
+)
 ```
 
 실행 증거: [파일 관리 전체 명령·출력](logs/file-operations.txt) — `mkdir`, `touch`, `mv`, `rm`, `rmdir`와 삭제 확인이 포함되어 있습니다.
@@ -157,7 +168,7 @@ docker ps -a
 docker stats --no-stream
 ```
 
-- **이미지**는 실행 환경의 템플릿이고, **컨테이너**는 이미지의 실행 인스턴스입니다.
+- **이미지**는 실행 환경의 템플릿이고, **컨테이너**는 이미지의 실행 인스턴스입니다. `site/index.html` 변경은 이미지를 다시 빌드하고 그 이미지로 컨테이너를 새로 실행하면 보입니다. 5절에서 연결하는 `live/index.html` 변경은 실행 중인 컨테이너에 바로 반영됩니다.
 - `docker ps`는 실행 중인 컨테이너, `docker ps -a`는 종료된 컨테이너까지 보여줍니다.
 - `--rm`은 컨테이너 종료 후 해당 컨테이너를 자동 삭제합니다.
 - `docker logs <컨테이너명>`은 표준 출력·오류 로그를 확인합니다.
@@ -214,7 +225,7 @@ curl http://localhost:8081
 
 `-p 127.0.0.1:8080:80`은 **호스트 루프백 주소의 8080 포트 → 컨테이너의 80 포트**로 요청을 전달하도록 포트를 게시합니다. 같은 이미지로 실행한 다른 컨테이너도 독립적인 내부 `80`번 포트를 사용하면서 호스트의 `8081` 등 다른 포트에 연결할 수 있습니다. 바인딩 주소를 생략한 `-p 8080:80`은 Docker 환경에 따라 외부 인터페이스에도 공개될 수 있습니다.
 
-> 예외: `--network host` 모드는 일반적인 브리지 네트워크와 달리 호스트 네트워크를 공유하므로 위와 같은 네트워크 분리·포트 게시 설명을 그대로 적용할 수 없습니다.
+> Linux Docker Engine에서 `--network host`를 사용하면 Nginx가 호스트의 80번 포트를 직접 사용하고, Docker는 `-p` 옵션을 무시합니다. [Docker 호스트 네트워크 설명](https://docs.docker.com/engine/network/drivers/host/)
 
 | 주소 | 호스트 포트 | 컨테이너 포트 | 저장된 검증 |
 | --- | --- | --- | --- |
@@ -274,23 +285,36 @@ docker rm codyssey-bind
 
 **볼륨**은 Docker가 관리하는 저장 공간입니다. 컨테이너를 삭제하더라도 볼륨을 별도로 삭제하지 않는 한 데이터를 보존할 수 있습니다.
 
+### 저장된 실습 결과 (평가 #8)
+
+| 순서 | 확인한 결과 | 원본 로그 |
+| --- | --- | --- |
+| 1. 삭제 전 | `codyssey-data` 볼륨이 생성됐고 `codyssey-vol-1`은 `alpine:3.20`에서 `sleep 1000000`으로 실행 중이었습니다. 삭제 전 파일 내용은 `Codyssey Persistent Data`였습니다. | [볼륨 생성](logs/volume-created.txt) · [볼륨 정보](logs/volume-inspect.txt) · [컨테이너 상태](logs/volume-container-before.txt) · [삭제 전 내용](logs/volume-before.txt) |
+| 2. 컨테이너 삭제 | 삭제 출력에 `codyssey-vol-1`이 찍혔고, 삭제 후 목록에는 헤더만 남았습니다. | [삭제 출력](logs/volume-container-deleted.txt) · [삭제 후 목록](logs/volume-container-after-delete.txt) |
+| 3. 삭제 후 읽기 | 삭제 후 파일 내용도 `Codyssey Persistent Data`로, 삭제 전과 일치했습니다. | [삭제 후 내용](logs/volume-after.txt) |
+
+### 재현 예시
+
+아래 예시는 짧게 실행되는 쓰기 컨테이너와 읽기 전용 컨테이너를 차례로 사용합니다. `codyssey-vol-1`이라는 이름이 비어 있는지 먼저 확인하세요. 기존 볼륨에 `message.txt`가 있으면 그 내용을 읽습니다.
+
 ```bash
-docker volume create codyssey-data
-
-docker run --name codyssey-vol-1 \
-  -v codyssey-data:/data \
-  alpine sh -c 'echo "Codyssey Persistent Data" > /data/message.txt'
-
-docker rm codyssey-vol-1
-
-docker run --rm \
-  -v codyssey-data:/data \
-  alpine cat /data/message.txt
+(
+  set -e
+  docker volume create codyssey-data
+  docker run --name codyssey-vol-1 \
+    -v codyssey-data:/data \
+    alpine sh -ec '
+      if [ ! -e /data/message.txt ]; then
+        echo "Codyssey Persistent Data" > /data/message.txt
+      fi
+      cat /data/message.txt
+    '
+  docker rm codyssey-vol-1
+  docker run --rm -v codyssey-data:/data:ro alpine cat /data/message.txt
+)
 ```
 
-예상되는 마지막 출력은 `Codyssey Persistent Data`입니다. 실행 과정에서 동일한 이름의 기존 컨테이너가 남아 있으면 먼저 상태를 확인하세요. 볼륨 자체를 제거하려면 `docker volume rm codyssey-data`를 사용하며, **이 명령은 보존 데이터까지 삭제**하므로 주의합니다.
-
-저장된 실습 결과는 삭제 전과 재실행 후 데이터가 일치합니다: [볼륨 생성](logs/volume-created.txt) · [삭제 전](logs/volume-before.txt) · [컨테이너 삭제](logs/volume-container-deleted.txt) · [삭제 후](logs/volume-after.txt) · [볼륨 정보](logs/volume-inspect.txt)
+새 검증에서 삭제 명령, 재마운트 명령, 두 번의 `cat` 출력을 한 파일로 남기는 방법은 7-2절에 있습니다. 이때는 [검증 스크립트](scripts/verify-evidence.sh)가 별도의 실습용 볼륨을 생성합니다.
 
 ### 이름 있는 볼륨 백업과 복구 대안 (평가 #17)
 
@@ -331,6 +355,8 @@ docker run --rm \
 
 복원 검증을 마친 뒤 테스트 볼륨이 더 이상 필요하지 않을 때만 `docker volume rm codyssey-restore-test`로 제거합니다. 데이터가 변경되는 서비스라면 정합성 있는 백업을 위해 쓰기를 일시 중단하거나 애플리케이션별 백업 기능을 사용해야 합니다.
 
+백업을 반복할 때는 중요한 변경 전에 날짜와 시각이 포함된 파일명으로 한 벌씩 보관하고, 새 볼륨에서 주기적으로 복원을 확인합니다.
+
 ### 바인드 마운트와 볼륨 비교
 
 | 구분 | 바인드 마운트 | 이름 있는 볼륨 |
@@ -360,14 +386,35 @@ docker rm codyssey-bind    # 기존 컨테이너를 더 이상 사용하지 않�
 
 기록된 실제 오류는 `Bind for 127.0.0.1:8080 failed: port is already allocated`입니다. 동일한 호스트 IP·포트 조합을 두 컨테이너가 동시에 바인딩할 수 없습니다.
 
+WSL에서 `docker ps`의 `PORTS` 열과 Linux 쪽 리스닝 소켓을 확인합니다. Windows 프로세스가 8080을 점유한 경우에는 PowerShell에서 `Get-NetTCPConnection -LocalPort 8080 -State Listen`의 `OwningProcess`를 확인합니다.
+
 ```bash
-docker ps -a
-# 기존 8080 컨테이너가 사용 중이면 다른 호스트 포트를 선택
+docker ps --format 'table {{.Names}}\t{{.Ports}}'
+ss -ltnp 'sport = :8080'
+
+# 8083이 비어 있을 때 별도 컨테이너로 실행
 docker run -d --name codyssey-web-alt -p 127.0.0.1:8083:80 codyssey-web:1.0
-curl http://localhost:8083
+docker port codyssey-web-alt 80/tcp
+curl -i http://127.0.0.1:8083/
 ```
 
-검증: [포트 충돌 오류](logs/troubleshooting-port.txt) · [정상 응답](logs/troubleshooting-port-fixed.txt)
+당시 저장한 오류는 8080의 바인딩 실패이며, 복구 후 파일에 저장한 것은 웹페이지의 HTML 본문입니다. [8080 충돌 오류](logs/troubleshooting-port.txt) · [당시 포트 매핑](logs/docker-ps.txt) · [복구 후 HTML](logs/troubleshooting-port-fixed.txt)
+
+**볼륨과 포트 충돌의 새 실행 기록.** Docker Desktop을 켜고 프로젝트 루트의 WSL 터미널에서 아래 명령 하나를 실행합니다.
+
+```bash
+bash scripts/verify-evidence.sh
+```
+
+스크립트는 별도 볼륨의 삭제 전후 내용을 비교한 뒤, 8080 충돌을 재현하고 대체 포트의 HTTP `200`과 `site/index.html` 본문을 확인합니다. 성공하면 실제 명령·응답 헤더·본문이 [로그 폴더](logs/)의 `workstation-verification.txt`에 저장됩니다. 8083도 사용 중이면 `bash scripts/verify-evidence.sh 8084`처럼 빈 포트를 지정하세요. 실행 중 만든 컨테이너와 임시 볼륨은 스크립트가 정리합니다. [검증 스크립트](scripts/verify-evidence.sh)
+
+새 기록을 GitHub에 제출하려면 완료 메시지를 확인한 뒤 아래 세 줄을 실행합니다.
+
+```bash
+git add -- logs/workstation-verification.txt
+git commit -m "docs: record workstation verification"
+git push origin main
+```
 
 ### 7-3. 바인드 마운트 경로 및 표시 문제
 
@@ -385,15 +432,17 @@ curl http://localhost:8082
 
 ### 7-4. Dockerfile이 비어 있는 경우
 
-`the Dockerfile cannot be empty`가 표시되면 `cat Dockerfile`로 파일 내용을 확인하고, 이 저장소의 [Dockerfile](Dockerfile)처럼 실제 빌드 지시문을 작성합니다.
+`the Dockerfile cannot be empty`가 표시되면 `cat Dockerfile`로 빌드 지시문을 확인합니다. 빌드가 `COPY site/`에서 멈추면 저장소 루트에서 `ls -l Dockerfile site/index.html`로 두 파일이 보이는지 확인한 뒤 `docker build -t codyssey-web:1.0 .`을 다시 실행합니다. [Dockerfile](Dockerfile) · [성공한 빌드 로그](logs/docker-build.txt)
 
 ### 7-5. hello-world 이미지 이름 오류
 
-`docker run hello`가 아니라 다음을 사용합니다.
+이미지 이름은 `hello-world`입니다. 아래 명령으로 실행하면 결과에 `Hello from Docker!`가 표시됩니다. [저장한 출력](logs/hello-world.txt)
 
 ```bash
 docker run --rm hello-world
 ```
+
+명령까지 함께 기록하려면 WSL에서 `(set -x; docker run --rm hello-world) > logs/hello-world-session.txt 2>&1`을 실행합니다.
 
 ## 8. Git과 GitHub
 
@@ -412,7 +461,14 @@ git status
 
 `Your branch is up to date with 'origin/main'`은 추적 중인 원격 브랜치와 커밋이 일치한다는 뜻입니다. 작업 트리가 깨끗한지는 `nothing to commit, working tree clean` 메시지로 **별도 확인**합니다.
 
-원격 연결: [git-remote.txt](logs/git-remote.txt)
+### GitHub 원격 반영 증거 (평가 #9)
+
+| 확인 대상 | 확인 방법 |
+| --- | --- |
+| 원격 주소 | `origin`의 가져오기·푸시 주소가 모두 `https://github.com/qwd-zero/work.git`입니다. [원격 설정 로그](logs/git-remote.txt) |
+| 원격에 반영된 커밋 | 2026년 11월 6일 17시 35분 09초(한국시간)에 기록된 `4938e6d`에서 README와 실습 증거 정리 내용을 확인할 수 있습니다. [GitHub 커밋 4938e6d](https://github.com/qwd-zero/work/commit/4938e6d7ecfd402f0033f76eb504ddd0f6d266a9) · [main 커밋 이력](https://github.com/qwd-zero/work/commits/main/) |
+
+`git ls-remote origin refs/heads/main`은 실행 시점에 GitHub의 `main`이 가리키는 커밋을 보여줍니다.
 
 > 이 README를 GitHub 웹 또는 연결된 앱에서 직접 수정했다면, 로컬 복제본에서 작업하기 전에 `git pull --ff-only origin main`으로 최신 커밋을 가져옵니다. 로컬 미커밋 변경이 있으면 우선 `git status`로 확인하세요.
 
@@ -428,7 +484,7 @@ git status
 - [x] 볼륨의 컨테이너 삭제 전·후 데이터 동일성 기록
 - [x] 이름 있는 볼륨 백업 실행 로그 및 복원 참고 절차 작성
 - [x] 포트 충돌 및 마운트 점검 관련 로그 기록
-- [x] GitHub 원격 저장소 연결
+- [x] GitHub 원격 주소와 `main`에 반영된 실습 커밋 링크 확인
 - [x] 브라우저 및 바인드 마운트 스크린샷 4개를 `evidence/`에 보관하고 링크
 - [ ] Windows, Ubuntu, Git 상세 버전 증빙 보완(선택 사항)
 
@@ -440,12 +496,17 @@ git status
 
 ```bash
 docker ps -a
-docker stop codyssey-web-8080 codyssey-web-8081 codyssey-bind 2>/dev/null || true
-docker rm codyssey-web-8080 codyssey-web-8081 codyssey-bind 2>/dev/null || true
+for name in codyssey-web-8080 codyssey-web-8081 codyssey-bind codyssey-web-alt codyssey-conflict; do
+  running=$(docker container inspect --format '{{.State.Running}}' "$name" 2>/dev/null) || continue
+  if [ "$running" = true ]; then
+    docker stop "$name" || continue
+  fi
+  docker rm "$name"
+done
 docker ps -a
 ```
 
-존재하지 않는 이름은 오류가 발생할 수 있으며 위 예시는 이를 무시합니다. `codyssey-vol-1`은 실습에서 이미 삭제하는 예시입니다. 이미지와 볼륨은 위 명령으로 삭제되지 않습니다. 재빌드가 필요 없다면 이미지는 남겨 두어도 됩니다.
+7-2절에서 실행한 8083 컨테이너 `codyssey-web-alt`와 충돌 후 남을 수 있는 `codyssey-conflict`도 위 목록에 포함됩니다. 존재하는 컨테이너만 확인해 실행 중이면 중지한 뒤 삭제합니다. 6절의 `codyssey-vol-1`은 볼륨 실습 도중 삭제합니다.
 
 이미지를 지우려면 해당 이미지를 쓰는 컨테이너가 없는지 확인한 다음 `docker image rm codyssey-web:1.0`을 사용합니다. 볼륨 `codyssey-data`는 보존할 데이터가 없는 경우에만 별도로 삭제합니다.
 
