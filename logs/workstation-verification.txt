@@ -1,0 +1,83 @@
++ date -Iseconds
+2026-11-08T23:03:46+09:00
++ docker version --format 'Docker {{.Server.Version}}'
+Docker 29.9.2
++ docker image inspect codyssey-web:1.0
++ docker volume create --label codyssey.evidence=codyssey-check-56Ab76bY codyssey-check-56Ab76bY-data
+codyssey-check-56Ab76bY-data
+++ docker volume inspect --format '{{index .Labels "codyssey.evidence"}}' codyssey-check-56Ab76bY-data
++ owner=codyssey-check-56Ab76bY
++ [[ codyssey-check-56Ab76bY == codyssey\-check\-56Ab76bY ]]
++ docker run --name codyssey-check-56Ab76bY-writer --label codyssey.evidence=codyssey-check-56Ab76bY -v codyssey-check-56Ab76bY-data:/data --entrypoint sh codyssey-web:1.0 -ec $'echo "Codyssey Persistent Data" > /data/message.txt\ncat /data/message.txt'
++ cat logs/.codyssey-check.56Ab76bY/before
+Codyssey Persistent Data
++ docker rm codyssey-check-56Ab76bY-writer
+codyssey-check-56Ab76bY-writer
++ docker ps -a --filter 'name=^/codyssey-check-56Ab76bY-writer$' --format 'table {{.Names}}\t{{.Status}}'
+NAMES     STATUS
++ docker run --rm --label codyssey.evidence=codyssey-check-56Ab76bY -v codyssey-check-56Ab76bY-data:/data:ro --entrypoint cat codyssey-web:1.0 /data/message.txt
++ cat logs/.codyssey-check.56Ab76bY/after
+Codyssey Persistent Data
++ grep -Fxq 'Codyssey Persistent Data' logs/.codyssey-check.56Ab76bY/before
++ cmp logs/.codyssey-check.56Ab76bY/before logs/.codyssey-check.56Ab76bY/after
++ run_web first 8080
++ cat logs/.codyssey-check.56Ab76bY/conflict
++ docker run -d --name codyssey-check-56Ab76bY-first --label codyssey.evidence=codyssey-check-56Ab76bY -p 127.0.0.1:8080:80 codyssey-web:1.0
+154b3fa6ab255071125c5c5e9a9b42af4b007325d77143fec53c385fa1bab67d
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint codyssey-check-56Ab76bY-first (c6907c6d59e87e4c6d4cd33a6d75fca603c62035ebeb99d1b80eee302844ca72): Bind for 127.0.0.1:8080 failed: port is already allocated
+
+Run 'docker run --help' for more information
++ grep -Eiq 'port is already allocated|address already in use|only one usage of each socket address' logs/.codyssey-check.56Ab76bY/conflict
++ docker ps --format 'table {{.Names}}\t{{.Ports}}'
++ awk 'NR == 1 || /:8080->/'
+NAMES                  PORTS
+codyssey-web-8080      127.0.0.1:8080->80/tcp
++ command -v ss
++ ss -ltnp 'sport = :8080'
+State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+LISTEN 0      4096       127.0.0.1:8080      0.0.0.0:*          
++ run_web recovery 8083
++ docker run -d --name codyssey-check-56Ab76bY-recovery --label codyssey.evidence=codyssey-check-56Ab76bY -p 127.0.0.1:8083:80 codyssey-web:1.0
+dd69e5c63e9448fe5ba32ea1bc0aa6b72f0befa6342a280a545bef73699937b6
++ docker port codyssey-check-56Ab76bY-recovery 80/tcp
+127.0.0.1:8083
+++ curl --noproxy '*' -sS --retry 8 --retry-all-errors --retry-delay 1 --connect-timeout 2 --max-time 5 -D logs/.codyssey-check.56Ab76bY/headers -o logs/.codyssey-check.56Ab76bY/body -w '%{http_code}' http://127.0.0.1:8083/
++ code=200
++ cat logs/.codyssey-check.56Ab76bY/headers logs/.codyssey-check.56Ab76bY/body
+HTTP/1.1 200 OK
+Server: nginx/1.31.8
+Date: Sun, 08 Nov 2026 14:03:48 GMT
+Content-Type: text/html
+Content-Length: 582
+Last-Modified: Thu, 05 Nov 2026 14:08:19 GMT
+Connection: keep-alive
+ETag: "6aec8dd3-246"
+Accept-Ranges: bytes
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codyssey Work</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 100px;
+            background-color: #f4f6f8;
+        }
+        h1 { color: #2563eb; }
+        p { color: #444; }
+    </style>
+</head>
+<body>
+    <h1>Codyssey Docker Web Server</h1>
+    <p>My development work is running!</p>
+    <p>Powered by Nginx and Docker</p>
+</body>
+</html>
++ [[ 200 != 200 ]]
++ cmp site/index.html logs/.codyssey-check.56Ab76bY/body
++ set +x
+볼륨 내용 일치 / 포트 8083 HTTP 200 / site/index.html 본문 일치
